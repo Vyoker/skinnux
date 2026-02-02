@@ -1,15 +1,16 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# =========================================
-# SKINNUX v0.0.1
+# ==================================================
+# SKINNUX v0.0.4
 # Linux-style UI Skin Distribution for Termux
-# Shell support: bash, zsh, fish (safe)
-# =========================================
+# Shell: bash | zsh | fish
+# ==================================================
 
+# ------------- CONFIG -------------
 SKINNUX_DIR="$HOME/.skinnux"
 BACKUP_DIR="$SKINNUX_DIR/backup"
 REPO_RAW="https://raw.githubusercontent.com/USERNAME/skinnux/main"
 
-# ---------- UTILS ----------
+# ------------- UTILS -------------
 pause() {
   printf "\nPress Enter to continue..."
   read _
@@ -31,22 +32,28 @@ ensure_dirs() {
   mkdir -p "$SKINNUX_DIR" "$BACKUP_DIR" "$HOME/.termux"
 }
 
-# ---------- BACKUP (ONCE) ----------
-backup_once() {
-  if [ -f "$HOME/.bashrc" ] && [ ! -f "$BACKUP_DIR/.bashrc.bak" ]; then
-    cp "$HOME/.bashrc" "$BACKUP_DIR/.bashrc.bak"
+# ------------- DETECT SHELL -------------
+detect_shell() {
+  if echo "$SHELL" | grep -q "fish"; then
+    echo "fish"
+  elif echo "$SHELL" | grep -q "zsh"; then
+    echo "zsh"
+  else
+    echo "bash"
   fi
+}
 
-  if [ -f "$HOME/.zshrc" ] && [ ! -f "$BACKUP_DIR/.zshrc.bak" ]; then
-    cp "$HOME/.zshrc" "$BACKUP_DIR/.zshrc.bak"
-  fi
+# ------------- BACKUP (ONCE) -------------
+backup_once() {
+  [ -f "$HOME/.bashrc" ] && [ ! -f "$BACKUP_DIR/.bashrc.bak" ] && cp "$HOME/.bashrc" "$BACKUP_DIR/.bashrc.bak"
+  [ -f "$HOME/.zshrc" ] && [ ! -f "$BACKUP_DIR/.zshrc.bak" ] && cp "$HOME/.zshrc" "$BACKUP_DIR/.zshrc.bak"
 
   if [ -d "$HOME/.termux" ] && [ ! -d "$BACKUP_DIR/.termux.bak" ]; then
     cp -r "$HOME/.termux" "$BACKUP_DIR/.termux.bak"
   fi
 }
 
-# ---------- RESTORE ----------
+# ------------- RESTORE -------------
 restore_default() {
   printf "▶ Restoring original configuration...\n"
 
@@ -59,41 +66,57 @@ restore_default() {
   fi
 
   termux-reload-settings
-  printf "✔ Restored successfully.\n"
+  printf "✔ Restore completed.\n"
 }
 
-# ---------- INJECT PROMPT ----------
-inject_prompt() {
+# ------------- INJECT PROMPT -------------
+inject_bash_zsh() {
   FILE="$1"
-
   [ ! -f "$FILE" ] && return
 
   sed -i '/# SKINNUX START/,/# SKINNUX END/d' "$FILE"
-
   printf "\n# SKINNUX START\n" >> "$FILE"
   printf "[ -f \"$SKINNUX_DIR/prompt.sh\" ] && source \"$SKINNUX_DIR/prompt.sh\"\n" >> "$FILE"
   printf "# SKINNUX END\n" >> "$FILE"
 }
 
-# ---------- APPLY SKIN ----------
+inject_fish() {
+  FISH_CONF="$HOME/.config/fish/config.fish"
+  mkdir -p "$(dirname "$FISH_CONF")"
+
+  sed -i '/# SKINNUX START/,/# SKINNUX END/d' "$FISH_CONF"
+  printf "\n# SKINNUX START\n" >> "$FISH_CONF"
+  printf "source %s/prompt.fish\n" "$SKINNUX_DIR" >> "$FISH_CONF"
+  printf "# SKINNUX END\n" >> "$FISH_CONF"
+}
+
+# ------------- APPLY SKIN -------------
 apply_skin() {
   SKIN="$1"
-  printf "▶ Applying skin: %s\n" "$SKIN"
+  SHELL_TYPE="$(detect_shell)"
+
+  printf "▶ Applying skin: %s (%s)\n" "$SKIN" "$SHELL_TYPE"
 
   curl -fsSL "$REPO_RAW/skins/$SKIN/prompt.sh" \
-    -o "$SKINNUX_DIR/prompt.sh" || return 1
+    -o "$SKINNUX_DIR/prompt.sh" 2>/dev/null
+
+  curl -fsSL "$REPO_RAW/skins/$SKIN/prompt.fish" \
+    -o "$SKINNUX_DIR/prompt.fish" 2>/dev/null
 
   curl -fsSL "$REPO_RAW/skins/$SKIN/colors.properties" \
     -o "$HOME/.termux/colors.properties" || return 1
 
-  inject_prompt "$HOME/.bashrc"
-  inject_prompt "$HOME/.zshrc"
+  case "$SHELL_TYPE" in
+    fish) inject_fish ;;
+    zsh)  inject_bash_zsh "$HOME/.zshrc" ;;
+    bash) inject_bash_zsh "$HOME/.bashrc" ;;
+  esac
 
   termux-reload-settings
-  printf "✔ Skin applied. Restart Termux.\n"
+  printf "✔ Skin applied. Restart shell for full effect.\n"
 }
 
-# ---------- MENU ----------
+# ------------- MENU -------------
 menu() {
   while true; do
     header
@@ -102,7 +125,6 @@ menu() {
     printf "-------------------------------\n"
     printf "[3] Restore Default\n"
     printf "[0] Exit\n\n"
-
     printf "Select option ➜ "
     read opt
 
@@ -111,6 +133,14 @@ menu() {
       2) backup_once; apply_skin "neonbyte"; pause ;;
       3) restore_default; pause ;;
       0) exit 0 ;;
+      *) printf "Invalid option.\n"; pause ;;
+    esac
+  done
+}
+
+# ------------- ENTRY POINT -------------
+ensure_dirs
+menu      0) exit 0 ;;
       *) printf "Invalid option.\n"; pause ;;
     esac
   done
