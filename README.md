@@ -14,7 +14,6 @@ SKINNUX is a UI framework for Termux that brings the experience of choosing a Li
 - 🛡️ Safe Backup System
 - ♻️ Restore & Uninstall
 - 🔧 Dependency Auto-Check & Auto-Install
-- 
 
 ## Install
 curl -s https://raw.githubusercontent.com/Vyoker/skinnux/main/skinnux.sh | bash
