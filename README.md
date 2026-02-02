@@ -1,13 +1,20 @@
 # SKINNUX
 
-Linux-style skin distribution system for Termux.
+Linux-style UI Skin Distribution for Termux.
+Not a theme. Not a toolset.
+Just identity.
 
-## Features
-- Distro-like UI selector
-- Multi-line segmented prompt
-- Custom icons & separators
-- Safe backup & restore
-- One command install
+SKINNUX is a UI framework for Termux that brings the experience of choosing a Linux distro — but with a full focus on appearance: colors, prompts, lines, and terminal characters.
+
+## Features (v.0.0.5)
+- 🎛️ Distro-like UI System
+- 🖥️ Multi-Shell Support
+- 🎨 Advanced Prompt UI
+- 🎨 Termux Color Engine
+- 🛡️ Safe Backup System
+- ♻️ Restore & Uninstall
+- 🔧 Dependency Auto-Check & Auto-Install
+- 
 
 ## Install
 curl -fsSL https://skinnux.sh | bash
