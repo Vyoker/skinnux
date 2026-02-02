@@ -2,7 +2,7 @@
 # ==================================================
 # SKINNUX v0.0.6
 # Linux-style UI Skin Distribution for Termux
-# Shell : bash | zsh | fish
+# Shell: bash | zsh | fish
 # ==================================================
 
 # ---------------- CONFIG ----------------
@@ -12,20 +12,20 @@ REPO_RAW="https://raw.githubusercontent.com/USERNAME/skinnux/main"
 
 # ---------------- UTILS ----------------
 pause() {
-  printf "\nPress Enter to continue..."
-  read _
+  echo
+  read -rp "Press Enter to continue..."
 }
 
 header() {
   clear
-  printf "\033[38;5;45m"
-  printf "███████╗██╗  ██╗██╗███╗   ██╗███╗   ██╗██╗   ██╗██╗  ██╗\n"
-  printf "██╔════╝██║ ██╔╝██║████╗  ██║████╗  ██║██║   ██║╚██╗██╔╝\n"
-  printf "███████╗█████╔╝ ██║██╔██╗ ██║██╔██╗ ██║██║   ██║ ╚███╔╝ \n"
-  printf "╚════██║██╔═██╗ ██║██║╚██╗██║██║╚██╗██║██║   ██║ ██╔██╗ \n"
-  printf "███████║██║  ██╗██║██║ ╚████║██║ ╚████║╚██████╔╝██╔╝ ██╗\n"
-  printf "╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝\n"
-  printf "\033[0mLinux-style UI Skin Distribution for Termux\n\n"
+  echo -e "\033[38;5;45m"
+  echo "███████╗██╗  ██╗██╗███╗   ██╗███╗   ██╗██╗   ██╗██╗  ██╗"
+  echo "██╔════╝██║ ██╔╝██║████╗  ██║████╗  ██║██║   ██║╚██╗██╔╝"
+  echo "███████╗█████╔╝ ██║██╔██╗ ██║██╔██╗ ██║██║   ██║ ╚███╔╝ "
+  echo "╚════██║██╔═██╗ ██║██║╚██╗██║██║╚██╗██║██║   ██║ ██╔██╗ "
+  echo "███████║██║  ██╗██║██║ ╚████║██║ ╚████║╚██████╔╝██╔╝ ██╗"
+  echo "╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝"
+  echo -e "\033[0mLinux-style UI Skin Distribution for Termux\n"
 }
 
 has_cmd() {
@@ -34,7 +34,171 @@ has_cmd() {
 
 # ---------------- DEPENDENCY ----------------
 install_dependencies() {
-  REQUIRED="bash coreutils sed curl termux-reload-settings"
+  echo "▶ Checking dependencies..."
+  NEED=""
+
+  has_cmd bash || NEED="$NEED bash"
+  has_cmd sed || NEED="$NEED sed"
+  has_cmd curl || NEED="$NEED curl"
+  has_cmd cp || NEED="$NEED coreutils"
+  has_cmd termux-reload-settings || NEED="$NEED termux-tools"
+
+  if [ -n "$NEED" ]; then
+    echo "▶ Installing:$NEED"
+    pkg install -y $NEED
+  fi
+}
+
+font_hint() {
+  echo
+  echo "ℹ Tip: Nerd Font / Powerline font recommended"
+  echo "  for best visual experience."
+}
+
+# ---------------- ENV ----------------
+ensure_dirs() {
+  mkdir -p "$SKINNUX_DIR" "$BACKUP_DIR" "$HOME/.termux"
+}
+
+detect_shell() {
+  case "$SHELL" in
+    *fish*) echo "fish" ;;
+    *zsh*)  echo "zsh" ;;
+    *)      echo "bash" ;;
+  esac
+}
+
+# ---------------- BACKUP ----------------
+backup_exists() {
+  [ -f "$BACKUP_DIR/.backup_done" ]
+}
+
+confirm_backup() {
+  echo
+  echo "⚠️  SKINNUX Backup Notice"
+  echo "Your current Termux configuration will be backed up."
+  echo "This includes any custom prompt or colors you already use."
+  echo
+  read -rp "Continue? [Y/n]: " ans
+  case "$ans" in
+    n|N) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+backup_once_safe() {
+  mkdir -p "$BACKUP_DIR"
+
+  [ -f "$HOME/.bashrc" ] && cp "$HOME/.bashrc" "$BACKUP_DIR/.bashrc.bak"
+  [ -f "$HOME/.zshrc" ] && cp "$HOME/.zshrc" "$BACKUP_DIR/.zshrc.bak"
+
+  if [ -f "$HOME/.config/fish/config.fish" ]; then
+    cp "$HOME/.config/fish/config.fish" "$BACKUP_DIR/config.fish.bak"
+  fi
+
+  [ -d "$HOME/.termux" ] && cp -r "$HOME/.termux" "$BACKUP_DIR/.termux.bak"
+
+  touch "$BACKUP_DIR/.backup_done"
+  echo "✔ Backup created."
+}
+
+# ---------------- RESTORE ----------------
+restore_default() {
+  echo "▶ Restoring previous configuration..."
+
+  [ -f "$BACKUP_DIR/.bashrc.bak" ] && cp "$BACKUP_DIR/.bashrc.bak" "$HOME/.bashrc"
+  [ -f "$BACKUP_DIR/.zshrc.bak" ] && cp "$BACKUP_DIR/.zshrc.bak" "$HOME/.zshrc"
+
+  if [ -f "$BACKUP_DIR/config.fish.bak" ]; then
+    mkdir -p "$HOME/.config/fish"
+    cp "$BACKUP_DIR/config.fish.bak" "$HOME/.config/fish/config.fish"
+  fi
+
+  if [ -d "$BACKUP_DIR/.termux.bak" ]; then
+    rm -rf "$HOME/.termux"
+    cp -r "$BACKUP_DIR/.termux.bak" "$HOME/.termux"
+  fi
+
+  termux-reload-settings
+  echo "✔ Restore completed."
+}
+
+# ---------------- PROMPT INJECT ----------------
+inject_bash_zsh() {
+  FILE="$1"
+  [ ! -f "$FILE" ] && return
+
+  sed -i '/# SKINNUX START/,/# SKINNUX END/d' "$FILE"
+  echo >> "$FILE"
+  echo "# SKINNUX START" >> "$FILE"
+  echo "[ -f \"$SKINNUX_DIR/prompt.sh\" ] && source \"$SKINNUX_DIR/prompt.sh\"" >> "$FILE"
+  echo "# SKINNUX END" >> "$FILE"
+}
+
+inject_fish() {
+  CONF="$HOME/.config/fish/config.fish"
+  mkdir -p "$(dirname "$CONF")"
+
+  sed -i '/# SKINNUX START/,/# SKINNUX END/d' "$CONF"
+  echo >> "$CONF"
+  echo "# SKINNUX START" >> "$CONF"
+  echo "source $SKINNUX_DIR/prompt.fish" >> "$CONF"
+  echo "# SKINNUX END" >> "$CONF"
+}
+
+# ---------------- APPLY SKIN ----------------
+apply_skin() {
+  SKIN="$1"
+  SHELL_TYPE="$(detect_shell)"
+
+  if ! backup_exists; then
+    confirm_backup || return
+    backup_once_safe
+  fi
+
+  echo "▶ Applying skin: $SKIN ($SHELL_TYPE)"
+
+  curl -fsSL "$REPO_RAW/skins/$SKIN/prompt.sh" -o "$SKINNUX_DIR/prompt.sh" 2>/dev/null
+  curl -fsSL "$REPO_RAW/skins/$SKIN/prompt.fish" -o "$SKINNUX_DIR/prompt.fish" 2>/dev/null
+  curl -fsSL "$REPO_RAW/skins/$SKIN/colors.properties" -o "$HOME/.termux/colors.properties" || return
+
+  case "$SHELL_TYPE" in
+    fish) inject_fish ;;
+    zsh)  inject_bash_zsh "$HOME/.zshrc" ;;
+    bash) inject_bash_zsh "$HOME/.bashrc" ;;
+  esac
+
+  termux-reload-settings
+  echo "✔ Skin applied. Restart Termux."
+}
+
+# ---------------- MENU ----------------
+menu() {
+  while true; do
+    header
+    echo "[1] NULLROOT   - Hacker / Elite"
+    echo "[2] NEONBYTE   - Cyberpunk Glow"
+    echo "-------------------------------"
+    echo "[3] Restore Default"
+    echo "[0] Exit"
+    echo
+    read -rp "Select option ➜ " opt
+
+    case "$opt" in
+      1) apply_skin "nullroot"; pause ;;
+      2) apply_skin "neonbyte"; pause ;;
+      3) restore_default; pause ;;
+      0) exit 0 ;;
+      *) echo "Invalid option."; pause ;;
+    esac
+  done
+}
+
+# ---------------- ENTRY ----------------
+ensure_dirs
+install_dependencies
+font_hint
+menu  REQUIRED="bash coreutils sed curl termux-reload-settings"
   MISSING=""
 
   for cmd in $REQUIRED; do
