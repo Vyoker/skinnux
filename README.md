@@ -17,4 +17,4 @@ SKINNUX is a UI framework for Termux that brings the experience of choosing a Li
 - 
 
 ## Install
-curl -fsSL https://skinnux.sh | bash
+curl -s https://raw.githubusercontent.com/Vyoker/skinnux/main/skinnux.sh | bash
